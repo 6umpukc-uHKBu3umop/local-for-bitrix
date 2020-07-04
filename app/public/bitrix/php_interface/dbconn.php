@@ -1,4 +1,5 @@
 <?
+define("BX_UTF", true);
 define("BX_USE_MYSQLI", true);
 define("DBPersistent", false);
 $DBType = "mysql";
