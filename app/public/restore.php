@@ -35,6 +35,7 @@ define('RESTORE_FILE_DIR', $_SERVER['DOCUMENT_ROOT'].'/bitrix/tmp/restore.remove
 if (file_exists($_SERVER['DOCUMENT_ROOT'].'/bitrix/restore_cloud.txt') && file_exists($_SERVER['DOCUMENT_ROOT'].'/bitrix/restore_cloud.php'))
 	unlink($_SERVER['DOCUMENT_ROOT'].'/bitrix/restore_cloud.txt');
 define('RESTORE_CLOUD_FILE_LIST', file_exists($_SERVER['DOCUMENT_ROOT'].'/bitrix/restore_cloud.txt') ? $_SERVER['DOCUMENT_ROOT'].'/bitrix/restore_cloud.txt' : $_SERVER['DOCUMENT_ROOT'].'/bitrix/restore_cloud.php');
+define('RESTORE_CLOUD_FILE_LIST_404', $_SERVER['DOCUMENT_ROOT'].'/bitrix/restore_cloud_404.php');
 
 $strWarning = '';
 
@@ -478,7 +479,7 @@ if (!DEBUG)
 	}
 	elseif ($_SERVER['REMOTE_ADDR'] != IP_LIMIT)
 		$strErrMsg = getMsg('ERROR_IP_CHANGED');
-	elseif (time() - INIT_TIMESTAMP > 86400)
+	elseif (time() - INIT_TIMESTAMP > 86400*7)
 		$strErrMsg = getMsg('ERROR_INIT_TIMESTAMP');
 
 	if ($strErrMsg)
@@ -928,7 +929,7 @@ elseif($Step == 2)
 				'<input type="hidden" name="EncryptKey" value="'.htmlspecialcharsbx($tar->EncryptKey).'">'.
 				'<input type="hidden" name="DataSize" value="'.$DataSize.'">'.
 				'<input type="hidden" name="arc_name" value="'.htmlspecialcharsbx($arc_name).'">';
-	
+
 				if($r === false) // Error
 				{
 					showMsg(getMsg("ERR_EXTRACT"), $status.$hidden.'<div style="color:red">'.$strErrMsg.'</div>', $bottom.$skip);
@@ -1069,6 +1070,7 @@ elseif($Step == 2)
 
 			$concurrency = 20;
 			$num = 0;
+			$bFirst = true;
 			while(!$strErrMsg)
 			{
 				while (haveTime() && count(CMultiGet::$connections) < $concurrency && (false !== $line = fgets($rsFile)))
@@ -1122,6 +1124,11 @@ elseif($Step == 2)
 					$url = $connection['url'];
 					CMultiGet::dropConnection(CMultiGet::$current);
 
+					if($bFirst)
+					{
+						$mirror_list_orig = $mirror_list;
+						$bFirst = false;
+					}
 
 					foreach($mirror_list as $mirror => $speed)
 					{
@@ -1139,7 +1146,10 @@ elseif($Step == 2)
 						$mirror = key($mirror_list);
 						continue;
 					}
-					$strErrMsg = nl2br(htmlspecialcharsbx(CMultiGet::$error));
+					//$strErrMsg = nl2br(htmlspecialcharsbx(CMultiGet::$error));
+					if(!file_exists(RESTORE_CLOUD_FILE_LIST_404))
+						file_put_contents(RESTORE_CLOUD_FILE_LIST_404, '<'.'?php die(); ?'.'>'."\n");
+					file_put_contents(RESTORE_CLOUD_FILE_LIST_404, nl2br(htmlspecialcharsbx(CMultiGet::$error))."\n", FILE_APPEND);
 				}
 
 				if (!haveTime())
@@ -1147,13 +1157,7 @@ elseif($Step == 2)
 			}
 			// для следующего хита обновим список зеркал
 
-			$mirror_list = [
-				'cdn.bitrix24.ru' => 999999,
-				'cdn.bitrix24.com' => 999999,
-				'cdn.bitrix24.de' => 999999,
-				'cdn-ru.bitrix24.ru' => 999999,
-				'cdn-ru.bitrix24.de' => 999999,
-			];
+			$mirror_list = $mirror_list_orig;
 
 			if (!$strErrMsg && (!feof($rsFile) || count(CMultiGet::$connections)))
 			{
@@ -1496,7 +1500,7 @@ elseif($Step == 4)
 			$strWarning .= '<li>'.$oDB->getError();
 	}
 
-	$text = 
+	$text =
 	($strWarning ? '<div style="color:red;padding:10px;text-align:center"><b>'.getMsg('WARNING').'</b></div> <ul style="color:red">'.$strWarning.'</ul>' : '').
 	getMsg("FINISH_MSG").GetHidden(array('dump_name', 'arc_name'));
 	$bottom = '<a style="padding:0 13px;font-size:13px;" href="/restore.php?Step=2&source=dump&lang='.LANG.'">'.getMsg('BUT_TEXT_BACK').'</a> '.
@@ -1641,7 +1645,7 @@ class CDBRestore
 
 		return true;
 	}
-	
+
 	function Fetch($rs)
 	{
 		return $this->mysqli ? mysqli_fetch_assoc($rs) : mysql_fetch_assoc($rs);
@@ -2888,7 +2892,7 @@ class CTar
 				return $this->Error('Wrong long header, block: '.$this->Block);
 			$header['filename'] = self::substr($filename,0,self::strpos($filename,chr(0)));
 		}
-		
+
 		if (self::strpos($header['filename'],'/') === 0) // trailing slash
 			$header['type'] = 5; // Directory
 
@@ -2925,7 +2929,7 @@ class CTar
 			}
 
 			$this->lastPath = $f = $this->path.'/'.$header['filename'];
-		
+
 			if ($this->ReadBlockCurrent == 0)
 			{
 				if ($header['type']==5) // dir
@@ -3041,7 +3045,7 @@ class CTar
 
 		if ($this->EncryptKey && !function_exists('mcrypt_encrypt') && !function_exists('openssl_encrypt'))
 			return $this->Error('Function mcrypt_encrypt/openssl_encrypt is not available');
-		
+
 		if ($mode == 'r' && !file_exists($file))
 			return $this->Error('File does not exist: '.$file);
 
@@ -3568,7 +3572,7 @@ class CDirScan
 				$this->DirCount++;
 			}
 		}
-		else 
+		else
 		{
 		#############################
 		# FILE
@@ -3631,7 +3635,7 @@ class CMultiGet
 					unset(self::$free_connections[$key]);
 					continue;
 				}
-				
+
 				$new_connection = self::$free_connections[$key];
 				unset(self::$free_connections[$key]);
 				break;
@@ -3683,7 +3687,7 @@ class CMultiGet
 		if (file_exists($file))
 			$strReq .= 'Range: bytes='.filesize($file).'-'."\r\n";
 		$strReq .= "\r\n";
-	
+
 		if (!fwrite($connection['socket'], $strReq))
 		{
 			self::$error = 'Can\'t write to '.$connect_string;
