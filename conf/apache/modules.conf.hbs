@@ -22,6 +22,10 @@ LoadModule setenvif_module "{{ modules }}/mod_setenvif.so"
 LoadModule status_module "{{ modules }}/mod_status.so"
 LoadModule log_config_module "{{ modules }}/mod_log_config.so"
 
+{{#if shouldUseFcgid}}
+LoadModule fcgid_module "{{ modules }}/mod_fcgid.so"
+{{/if}}
+
 {{#unless os.windows}}
 LoadModule unixd_module "{{ modules }}/mod_unixd.so"
 {{/unless}}
