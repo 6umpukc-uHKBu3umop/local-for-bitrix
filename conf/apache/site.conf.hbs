@@ -12,10 +12,19 @@
        Require all granted
    </Directory>
 
+   <IfModule fcgid_module>
+		FcgidInitialEnv PHP_FCGI_MAX_REQUESTS 1000
+		AddHandler fcgid-script .php
+		FcgidWrapper "{{fcgidWrapperPath}}" .php
+		FcgidInitialEnv PHPRC "{{phprcPath}}"
+   </IfModule>
+
     {{#if os.windows}}
     <FilesMatch \.php$>
-        ProxyFCGIBackendType GENERIC
-        SetHandler "proxy:fcgi://{{fastcgiWin32}}#"
+	{{#unless shouldUseFcgid}}
+		ProxyFCGIBackendType GENERIC
+		SetHandler "proxy:fcgi://{{fastcgiWin32}}#"
+	{{/unless}}
     </FilesMatch>
     {{else}}
     <FilesMatch \.php$>
