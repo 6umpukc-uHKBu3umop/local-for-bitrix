@@ -37,3 +37,7 @@ define("BX_USE_MYSQLI", true);
 mb_internal_encoding('Windows-1251');
 setlocale(LC_ALL, 'ru_RU.CP1251');
 setlocale(LC_NUMERIC,'C');
+
+//FIX remove port from host
+$_SERVER['HTTP_HOST'] = array_shift(explode(':', $_SERVER['HTTP_HOST']));
+$SERVER_PORT = $_SERVER['SERVER_PORT'] = 80;
