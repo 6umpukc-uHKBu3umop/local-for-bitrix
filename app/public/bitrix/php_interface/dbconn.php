@@ -35,3 +35,7 @@ define("BX_UTF", true);
 define("BX_DISABLE_INDEX_PAGE", true);
 define("BX_COMPRESSION_DISABLED", true);
 define("BX_USE_MYSQLI", true);
+
+//FIX remove port from host
+$_SERVER['HTTP_HOST'] = array_shift(explode(':', $_SERVER['HTTP_HOST']));
+$SERVER_PORT = $_SERVER['SERVER_PORT'] = 80;
